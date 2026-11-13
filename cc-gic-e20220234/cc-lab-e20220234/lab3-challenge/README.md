@@ -1,105 +1,71 @@
-# Cloud Lab 3 Challenge — Secure and Manage an Amazon S3 Bucket
+# Cloud Lab 3 Challenge Submission — Secure S3 Bucket
 
 - **Student name:** Davin Vatanak
 - **Student ID:** e20220234
 - **Learner Lab user name:** DAVIN_VATANAK
-- **Region:** US East (N. Virginia) — `us-east-1`
+- **Bucket name:** `clab-datastore-e20220234-2026`
 - **Date completed:** 12.11.26
 
 ---
 
-## Challenge objectives
+## 1. Bucket
 
-This challenge demonstrates how to:
+![Bucket list](images/01-bucket.png)
 
-1. Create and configure an Amazon S3 bucket.
-2. Configure bucket ownership and ACL settings.
-3. Allow public access only to objects in the `public/` prefix.
-4. Keep objects outside `public/` private.
-5. Enable object versioning.
-6. Create a lifecycle rule for noncurrent object versions.
+## 2. Object ownership
 
-## Resources created
+![Object Ownership](images/02-object-ownership.png)
 
-| Resource | Configuration |
-|---|---|
-| S3 bucket | `clab-datastore-e20220234-2026` in `us-east-1` |
-| Object ownership | Bucket owner preferred; ACLs enabled |
-| Public prefix | `public/` |
-| Public object | `public/index.html` |
-| Private object | Root-level test object outside `public/` |
-| Versioning | Enabled |
-| Lifecycle rule | All objects; noncurrent versions transition to S3 Standard-IA after 30 days |
+The bucket uses **Bucket owner preferred** with **ACLs enabled**.
 
----
-
-## Task 1 — Provision the S3 bucket
-
-Created a uniquely named S3 bucket beginning with `clab-datastore`.
-
-![S3 bucket](images/01-bucket.png)
-
-## Task 2 — Configure object ownership and security
-
-Configured the bucket with:
-
-- Object ownership: **Bucket owner preferred**
-- ACLs: **Enabled**
-- Block Public Access: configured to allow the required bucket policy
-
-![Object ownership](images/02-object-ownership.png)
-
-## Task 3 — Implement public access policy
-
-Created the `public/` folder and uploaded `index.html` inside it.
-
-The bucket policy allows `s3:GetObject` only for:
-
-```text
-arn:aws:s3:::clab-datastore-e20220234-2026/public/*
-```
-
-The complete policy is saved in [`bucket-policy.json`](bucket-policy.json).
+## 3. Public access policy
 
 ![Bucket policy](images/03a-bucket-policy.png)
 
-The public object loaded successfully through its S3 object URL:
-
-```text
-https://clab-datastore-e20220234-2026.s3.us-east-1.amazonaws.com/public/index.html
-```
-
-![Public object](images/03b-public-object.png)
-
-An object outside the `public/` prefix was denied when opened through its object URL.
+![Public object loaded in the browser](images/03b-public-object.png)
 
 ![Private object denied](images/03c-private-object.png)
 
-## Task 4 — Enable object versioning
+My policy is in [bucket-policy.json](bucket-policy.json).
 
-Enabled bucket versioning so previous versions remain available after objects are overwritten.
+The `Resource` line limits public access to objects in the `public/` folder:
+
+```json
+"Resource": "arn:aws:s3:::clab-datastore-e20220234-2026/public/*"
+```
+
+The `public/*` suffix matches objects inside `public/` only. The policy grants only `s3:GetObject`; it does not grant bucket listing or access to root-level objects and other prefixes.
+
+## 4. Versioning
 
 ![Versioning enabled](images/04-versioning.png)
 
-## Task 5 — Lifecycle policy
-
-Created a lifecycle rule that applies to all objects. Noncurrent object versions transition to **S3 Standard-IA** after **30 days**.
+## 5. Lifecycle rule
 
 ![Lifecycle rule](images/05-lifecycle.png)
 
+The lifecycle rule applies to the entire bucket and moves noncurrent object versions to **S3 Standard-IA** after **30 days**.
+
 ---
 
-## Security result
+## Questions
 
-| Object location | Expected access | Result |
-|---|---|---|
-| `public/index.html` | Public read | Allowed |
-| Root-level test object | Public read | Denied |
-| Any other prefix | Public read | Denied |
-| Bucket listing | Public | Not allowed by policy |
+### 1. You turned off parts of **Block Public Access** for this bucket. Why was that needed, and why is it still safe for the objects outside `public/`?
 
-The policy grants only `s3:GetObject` to objects under `public/`. It does not grant `s3:ListBucket`, so visitors cannot list bucket contents.
+It was needed so the bucket policy could grant anonymous `s3:GetObject` access to the public content. It remains safe because the policy resource is restricted to `public/*`. Objects at the bucket root and under other prefixes do not match the policy, so their object URLs return `AccessDenied`. The policy also grants no `s3:ListBucket` permission.
 
-## Cleanup
+### 2. What is a **noncurrent version**? Give an example from your own test.
 
-After taking screenshots, emptied the bucket including object versions and deleted the bucket.
+A noncurrent version is an older version of an object kept by S3 after a newer version is uploaded using the same object key. For example, after replacing `public/index.html`, the earlier `public/index.html` becomes noncurrent while the newly uploaded page becomes the current version. Versioning keeps both versions.
+
+### 3. Why move noncurrent versions to S3 Standard-IA instead of deleting them?
+
+Older versions may still be needed to restore previous content or investigate an accidental change. S3 Standard-IA reduces storage cost while retaining the versions. Deletion would save more storage cost but permanently remove recovery copies.
+
+## AI note
+
+An AI tool suggested checking that the lifecycle details showed **Entire bucket**, **Day 30**, and **Standard-IA**, because the lifecycle table truncated the transition text. I opened the lifecycle rule details and confirmed all three settings in `05-lifecycle.png`.
+
+## Clean up
+
+- [x] All object versions deleted and the bucket deleted.
